@@ -5,3 +5,4 @@ pandas-profiling==3.6.2
 seaborn==0.12.2
 openpyxl==3.0.10
 scikit-learn==1.2.1
+feature-engine==1.5.2

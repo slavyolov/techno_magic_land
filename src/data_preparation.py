@@ -1,5 +1,9 @@
 import pandas as pd
+import seaborn as sns
 from pandas_profiling import ProfileReport
+import matplotlib.pyplot as plt
+import numpy as np
+from feature_engine.creation import CyclicalFeatures
 
 
 class DataPreparation:
@@ -21,8 +25,78 @@ class DataPreparation:
         tml_visitors_p1.loc[tml_visitors_p1['Дата на излизане'].isnull(),
                             'Дата на излизане'] = tml_visitors_p1['Дата на влизане']
 
+        # drop the number column
+        tml_visitors_p1 = tml_visitors_p1.drop('№', axis=1)
+
+        # drop duplicates
+        tml_visitors_p1 = tml_visitors_p1.drop_duplicates()
+
         # Aggregate on day level to get the intensity (Интензивност на посещения - брой посетители на дневна база)
-        tml_visitors_p1.groupby(by=["Дата"])[]
+        tml_visitors_count = tml_visitors_p1.groupby(by=["Дата"]).size().to_frame().reset_index()
+        tml_visitors_count = tml_visitors_count.rename(columns={0: 'visitors_count'})
+        tml_visitors_count = tml_visitors_count.sort_values(by="Дата")
+
+        # Quick check of the aggregated data
+        fig = plt.figure(figsize=(10, 4))
+        sns.lineplot(data=tml_visitors_count, x="Дата", y="visitors_count")
+        fig.savefig('src/output/plots/eda/visitors_count_ts_plot.png', bbox_inches="tight")
+        plt.close()
+
+        # First three values look odd (row 1 - is assumed to be test row, row 2 and 3 are from the venue opening
+        # Thus these rows are considered outliers and are removed from the analysis
+        tml_visitors_count = tml_visitors_count.iloc[3:]
+
+        # Add the weekday column
+        tml_visitors_count["weekday"] = tml_visitors_count['Дата'].dt.weekday + 1
+        print("Check weekday row count : ")
+        print(tml_visitors_count["weekday"].value_counts().sort_values())
+        # From this it looks that the Monday is non working day for the TML.
+        # There is only 1 observation that will be removed
+        tml_visitors_count = tml_visitors_count[tml_visitors_count["weekday"] != 1]
+
+        # Check for Gaps in the timeseries data
+        tml_visitors_count['gap_in_days'] = tml_visitors_count['Дата'].sort_values().diff()
+        tml_visitors_count['gap_fg'] = tml_visitors_count['Дата'].sort_values().diff() > pd.to_timedelta('1 day')
+
+        print("Max gap is : ", tml_visitors_count['gap_in_days'].max())
+
+        # Fix gaps (resample with interpolate : option spline)
+        # spline: Estimates values that minimize overall curvature, thus obtaining a smooth surface passing
+        # through the input points.
+        tml_visitors_ts = tml_visitors_count[['Дата', 'visitors_count']]
+        tml_visitors_ts.index = tml_visitors_ts['Дата']
+        tml_visitors_ts = tml_visitors_ts[["visitors_count"]]
+        tml_visitors_ts = tml_visitors_ts.resample('1D').mean().interpolate(option='spline')
+        tml_visitors_ts = tml_visitors_ts.reset_index()
+        tml_visitors_ts["weekday"] = tml_visitors_ts['Дата'].dt.weekday + 1
+
+        # Note : Monday is again removed (off day for the TML)
+        tml_visitors_ts = tml_visitors_ts[tml_visitors_ts["weekday"] != 1]
+
+        # Add is_weekend flag
+        tml_visitors_ts['is_weekend'] = tml_visitors_ts['weekday'].isin([6, 7]).astype('int')
+
+        # Encode the day as sine/cosine (cyclical feature).
+        # Hint divide by 6 because Monday is closed. Otherwise, we have 7 weekdays
+        tml_visitors_ts['weekday_sin'] = np.sin(tml_visitors_ts['weekday'] * (2 * np.pi / 6))
+        tml_visitors_ts['weekday_cos'] = np.cos(tml_visitors_ts['weekday'] * (2 * np.pi / 6))
+
+        # Add month column and encode sine/cosine
+        tml_visitors_ts["month"] = tml_visitors_ts['Дата'].dt.month
+        cyclical = CyclicalFeatures(variables=None, drop_original=True)
+        tml_visitors_ts[["month_sin", "month_cos"]] = cyclical.fit_transform(tml_visitors_ts[["month"]])
+
+        # create new column that displays quarter from date column
+        tml_visitors_ts['quarter'] = tml_visitors_ts['Дата'].dt.quarter
+
+        # TODO: maybe filter from the TS holidays (Easter, Christmas, other - check the raw data ? )
+        # TODO: or include flag. Check availability and working days of the centre among these days
+
+        # Plot the final time series
+        fig = plt.figure(figsize=(10, 4))
+        sns.lineplot(data=tml_visitors_count, x="Дата", y="visitors_count")
+        fig.savefig('src/output/plots/eda/visitors_count_ts_plot_interpolated.png', bbox_inches="tight")
+        plt.close()
 
         return tables
 
@@ -68,3 +142,22 @@ class DataPreparation:
         profile.to_file(output_file=f'src/output/profiling/we_2020.html')
 
         print("Profiling done!")
+
+    def prepare_school_holidays(self):
+        """
+        Biggest share of visitors is among the range 7-14 years (kids). Thus school holidays, summer vacation and
+        other will play a role.
+
+        :return:
+        """
+        # from 30.06 to 14.09 we have summer vacation. Take the big range
+        summer_holidays_y1 = pd.DataFrame(pd.date_range(start='2018-06-30', end='2018-09-14'))
+        summer_holidays_y1 = summer_holidays_y1.rename(columns={0: 'Дата'})
+        summer_holidays_y1["is_summer_holiday"] = 1
+
+        summer_holidays_y2 = pd.DataFrame(pd.date_range(start='2019-06-30', end='2019-09-14'))
+        summer_holidays_y2 = summer_holidays_y2.rename(columns={0: 'Дата'})
+        summer_holidays_y2["is_summer_holiday"] = 1
+
+        school_holidays = summer_holidays_y1.append(summer_holidays_y2)
+        return school_holidays
