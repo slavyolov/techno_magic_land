@@ -27,6 +27,11 @@ class LinearModel:
         # split the data by keeping the temporal order
         train_test_split = int(self.config.lr_model.train_fraction * len(self.input_data))
 
+        # first difference feature :
+        # TODO: check if needed
+        # self.input_data["visitors_count_first_diff"] = self.input_data["visitors_count"].diff()
+        # self.input_data.dropna(how="any", inplace=True)
+
         self.train_set = self.input_data[:train_test_split]
         self.test_set = self.input_data[train_test_split:]
 

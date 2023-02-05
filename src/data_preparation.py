@@ -169,10 +169,45 @@ class DataPreparation:
         return school_holidays
 
     def prepare_weather_data(self):
-        we_2018 = pd.read_excel(io="src/resources/weather data 2018.xlsx", header=1, sheet_name=None)
-        df_all_2018 = pd.concat(we_2018.values(), ignore_index=True)
-        apr = pd.read_excel(io="src/resources/weather data 2018.xlsx", skiprows=2, sheet_name='Apr', header=None)
+        column_names = [
+            "Temperature (°F)_Max",
+            "Temperature (°F)_Avg",
+            "Temperature (°F)_Min",
+            "Dew Point (°F)_Max",
+            "Dew Point (°F)_Avg",
+            "Dew Point (°F)_Min",
+            "Humidity (%)_Max",
+            "Humidity (%)_Avg",
+            "Humidity (%)_Min",
+            "Wind Speed (mph)_Max",
+            "Wind Speed (mph)_Avg",
+            "Wind Speed (mph)_Min",
+            "Pressure (in)_Max",
+            "Pressure (in)_Avg",
+            "Pressure (in)_Min",
+            "Precipitation (in)"
+        ]
 
+        # weather 2018
+        we_2018 = pd.read_excel(io="src/resources/weather data 2018.xlsx", skiprows=2, sheet_name=None, header=None)
+        df_all_2018 = pd.concat(we_2018.values(), ignore_index=True)
+        df_all_2018.dropna(how="any", inplace=True)
+
+        df_all_2018["Дата"] = pd.date_range(start='2018-04-01', end='2018-12-31')
+
+        # weather 2019
+        we_2019 = pd.read_excel(io="src/resources/weather data 2019.xlsx", skiprows=2, sheet_name=None, header=None)
+        df_all_2019 = pd.concat(we_2019.values(), ignore_index=True)
+        df_all_2019.dropna(how="any", inplace=True)
+        df_all_2019 = df_all_2019.reset_index(drop=True)
+        df_all_2019["Дата"] = pd.date_range(start='2019-01-01', end='2019-12-31')
+
+        # weather 2020
+
+        # convert Fahrenhait to Celsius
+        fe_fields =
+        for field in fe_fields:
+            df_all_2018[field] = (df_all_2018[field] - 32) * 5 / 9
 
     def auto_correlation_plot(self):
         """
