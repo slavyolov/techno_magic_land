@@ -21,7 +21,7 @@ class DataPreparation:
 
         visitors_ts = self.prepare_tml_visitors_count(tables=tables)
         school_holidays = self.prepare_school_holidays()
-
+        weather_df = self.prepare_weather_data()
         # TODO: maybe filter from the TS holidays (Easter, Christmas, other - check the raw data ? )
         # TODO: or include flag. Check availability and working days of the centre among these days
 
@@ -34,17 +34,10 @@ class DataPreparation:
         df2 = pd.read_excel(xls, 'Таблица 2')
         df3 = pd.read_excel(xls, 'Таблица 3')
 
-        we_2018 = pd.read_excel(io="src/resources/weather data 2018.xlsx", header=1)
-        we_2019 = pd.read_excel(io="src/resources/weather data 2019.xlsx", header=1)
-        we_2020 = pd.read_excel(io="src/resources/weather data 2020.xlsx", header=1)
-
         return {
             'tml_visitors_p1': df1,
             'tml_visitors_p2': df2,
             'tml_visitors_p3': df3,
-            'we_2018': we_2018,
-            'we_2019': we_2019,
-            'we_2020': we_2020,
         }
 
     @staticmethod
@@ -59,14 +52,14 @@ class DataPreparation:
         profile = ProfileReport(tables["tml_visitors_p3"], title="Profiling Report")
         profile.to_file(output_file=f'src/output/profiling/tml_visitors_p3.html')
 
-        profile = ProfileReport(tables["we_2018"], title="Profiling Report")
-        profile.to_file(output_file=f'src/output/profiling/we_2018.html')
-
-        profile = ProfileReport(tables["we_2019"], title="Profiling Report")
-        profile.to_file(output_file=f'src/output/profiling/we_2019.html')
-
-        profile = ProfileReport(tables["we_2020"], title="Profiling Report")
-        profile.to_file(output_file=f'src/output/profiling/we_2020.html')
+        # profile = ProfileReport(tables["we_2018"], title="Profiling Report")
+        # profile.to_file(output_file=f'src/output/profiling/we_2018.html')
+        #
+        # profile = ProfileReport(tables["we_2019"], title="Profiling Report")
+        # profile.to_file(output_file=f'src/output/profiling/we_2019.html')
+        #
+        # profile = ProfileReport(tables["we_2020"], title="Profiling Report")
+        # profile.to_file(output_file=f'src/output/profiling/we_2020.html')
 
         print("Profiling done!")
 
@@ -169,7 +162,16 @@ class DataPreparation:
         return school_holidays
 
     def prepare_weather_data(self):
+        """
+        Read, combine and select weather features to use for modeling
+
+        * Dew point
+            the higher the dew point the muggier (https://www.youtube.com/watch?v=Cuf12bYTHHs)
+
+        :return:
+        """
         column_names = [
+            "day_of_week",
             "Temperature (°F)_Max",
             "Temperature (°F)_Avg",
             "Temperature (°F)_Min",
@@ -185,29 +187,51 @@ class DataPreparation:
             "Pressure (in)_Max",
             "Pressure (in)_Avg",
             "Pressure (in)_Min",
-            "Precipitation (in)"
+            "Precipitation (in)",
+            "Дата"
         ]
 
-        # weather 2018
-        we_2018 = pd.read_excel(io="src/resources/weather data 2018.xlsx", skiprows=2, sheet_name=None, header=None)
-        df_all_2018 = pd.concat(we_2018.values(), ignore_index=True)
-        df_all_2018.dropna(how="any", inplace=True)
+        def read_weather(path: str, date_start: str, date_end: str):
+            df = pd.read_excel(io=path, skiprows=2, sheet_name=None, header=None)
+            df_all = pd.concat(df.values(), ignore_index=True)
+            df_all.dropna(how="any", inplace=True)
+            df_all = df_all.reset_index(drop=True)
+            df_all["Дата"] = pd.date_range(start=date_start, end=date_end, freq='1D').date
+            return df_all
 
-        df_all_2018["Дата"] = pd.date_range(start='2018-04-01', end='2018-12-31')
+        # Weather
+        we_2018 = read_weather(path="src/resources/weather data 2018.xlsx", date_start='2018-04-01',
+                               date_end='2018-12-31')
+        we_2019 = read_weather(path="src/resources/weather data 2019.xlsx", date_start='2019-01-01',
+                               date_end='2019-12-31')
+        we_2020 = read_weather(path="src/resources/weather data 2020.xlsx", date_start='2020-01-01',
+                               date_end='2020-03-31')
 
-        # weather 2019
-        we_2019 = pd.read_excel(io="src/resources/weather data 2019.xlsx", skiprows=2, sheet_name=None, header=None)
-        df_all_2019 = pd.concat(we_2019.values(), ignore_index=True)
-        df_all_2019.dropna(how="any", inplace=True)
-        df_all_2019 = df_all_2019.reset_index(drop=True)
-        df_all_2019["Дата"] = pd.date_range(start='2019-01-01', end='2019-12-31')
+        weather_df = pd.concat([we_2018, we_2019, we_2020], ignore_index=True)
+        weather_df.columns = column_names
 
-        # weather 2020
+        # run profiling (run once)
+        # profile = ProfileReport(weather_df, title="Profiling Report")
+        # profile.to_file(output_file=f'src/output/profiling/weather_data_all_years.html')
+
+        # Findings from the profiling :
+        # let's focus for now the average values
+        # tmp_avg is highly correlated with dew_point and Humidity_avg - thus we can omit them for the time being
+        # Assumption is that we are going to train OLS model
+        # Precipitation column is uniform thus removed
+
+        focus_fields = ["Дата", "Temperature (°F)_Avg", "Wind Speed (mph)_Avg", "Pressure (in)_Avg"]
+        weather_df = weather_df[focus_fields]
 
         # convert Fahrenhait to Celsius
-        fe_fields =
-        for field in fe_fields:
-            df_all_2018[field] = (df_all_2018[field] - 32) * 5 / 9
+        weather_df["temperature_celsius_avg"] = (weather_df["Temperature (°F)_Avg"] - 32) * 5 / 9
+
+        # convert mph to kph
+        weather_df["wind_speed_kph_avg"] = weather_df["Wind Speed (mph)_Avg"] * 1.60934
+
+        weather_df = weather_df.rename(columns={'Pressure (in)_Avg': 'pressure_in_avg'})
+
+        return weather_df[["Дата", "temperature_celsius_avg", "wind_speed_kph_avg", "pressure_in_avg"]]
 
     def auto_correlation_plot(self):
         """
