@@ -4,6 +4,7 @@ from pandas_profiling import ProfileReport
 import matplotlib.pyplot as plt
 import numpy as np
 from feature_engine.creation import CyclicalFeatures
+from statsmodels.graphics.tsaplots import plot_pacf, plot_acf
 
 
 class DataPreparation:
@@ -18,6 +19,58 @@ class DataPreparation:
         """
         tables = self.read_data()
 
+        visitors_ts = self.prepare_tml_visitors_count(tables=tables)
+        school_holidays = self.prepare_school_holidays()
+
+        # TODO: maybe filter from the TS holidays (Easter, Christmas, other - check the raw data ? )
+        # TODO: or include flag. Check availability and working days of the centre among these days
+
+        return tables, visitors_ts, school_holidays
+
+    def read_data(self):
+        xls = pd.ExcelFile('src/resources/TML_vistors_case_study_data.xlsx')
+
+        df1 = pd.read_excel(xls, 'Таблица 1')
+        df2 = pd.read_excel(xls, 'Таблица 2')
+        df3 = pd.read_excel(xls, 'Таблица 3')
+
+        we_2018 = pd.read_excel(io="src/resources/weather data 2018.xlsx", header=1)
+        we_2019 = pd.read_excel(io="src/resources/weather data 2019.xlsx", header=1)
+        we_2020 = pd.read_excel(io="src/resources/weather data 2020.xlsx", header=1)
+
+        return {
+            'tml_visitors_p1': df1,
+            'tml_visitors_p2': df2,
+            'tml_visitors_p3': df3,
+            'we_2018': we_2018,
+            'we_2019': we_2019,
+            'we_2020': we_2020,
+        }
+
+    @staticmethod
+    def data_profiling(tables: dict):
+        # Profile reports :
+        profile = ProfileReport(tables["tml_visitors_p1"], title="Profiling Report")
+        profile.to_file(output_file=f'src/output/profiling/tml_visitors_p1.html')
+
+        profile = ProfileReport(tables["tml_visitors_p2"], title="Profiling Report")
+        profile.to_file(output_file=f'src/output/profiling/tml_visitors_p2.html')
+
+        profile = ProfileReport(tables["tml_visitors_p3"], title="Profiling Report")
+        profile.to_file(output_file=f'src/output/profiling/tml_visitors_p3.html')
+
+        profile = ProfileReport(tables["we_2018"], title="Profiling Report")
+        profile.to_file(output_file=f'src/output/profiling/we_2018.html')
+
+        profile = ProfileReport(tables["we_2019"], title="Profiling Report")
+        profile.to_file(output_file=f'src/output/profiling/we_2019.html')
+
+        profile = ProfileReport(tables["we_2020"], title="Profiling Report")
+        profile.to_file(output_file=f'src/output/profiling/we_2020.html')
+
+        print("Profiling done!")
+
+    def prepare_tml_visitors_count(self, tables):
         # Handle missing data for the 1st file
         tml_visitors_p1 = tables["tml_visitors_p1"].copy(deep=True)
 
@@ -89,59 +142,12 @@ class DataPreparation:
         # create new column that displays quarter from date column
         tml_visitors_ts['quarter'] = tml_visitors_ts['Дата'].dt.quarter
 
-        # TODO: maybe filter from the TS holidays (Easter, Christmas, other - check the raw data ? )
-        # TODO: or include flag. Check availability and working days of the centre among these days
-
         # Plot the final time series
         fig = plt.figure(figsize=(10, 4))
         sns.lineplot(data=tml_visitors_count, x="Дата", y="visitors_count")
         fig.savefig('src/output/plots/eda/visitors_count_ts_plot_interpolated.png', bbox_inches="tight")
         plt.close()
-
-        return tables
-
-    def read_data(self):
-        xls = pd.ExcelFile('src/resources/TML_vistors_case_study_data.xlsx')
-
-        df1 = pd.read_excel(xls, 'Таблица 1')
-        df2 = pd.read_excel(xls, 'Таблица 2')
-        df3 = pd.read_excel(xls, 'Таблица 3')
-
-        we_2018 = pd.read_excel(io="src/resources/weather data 2018.xlsx", header=1)
-        we_2019 = pd.read_excel(io="src/resources/weather data 2019.xlsx", header=1)
-        we_2020 = pd.read_excel(io="src/resources/weather data 2020.xlsx", header=1)
-
-        return {
-            'tml_visitors_p1': df1,
-            'tml_visitors_p2': df2,
-            'tml_visitors_p3': df3,
-            'we_2018': we_2018,
-            'we_2019': we_2019,
-            'we_2020': we_2020,
-        }
-
-    @staticmethod
-    def data_profiling(tables: dict):
-        # Profile reports :
-        profile = ProfileReport(tables["tml_visitors_p1"], title="Profiling Report")
-        profile.to_file(output_file=f'src/output/profiling/tml_visitors_p1.html')
-
-        profile = ProfileReport(tables["tml_visitors_p2"], title="Profiling Report")
-        profile.to_file(output_file=f'src/output/profiling/tml_visitors_p2.html')
-
-        profile = ProfileReport(tables["tml_visitors_p3"], title="Profiling Report")
-        profile.to_file(output_file=f'src/output/profiling/tml_visitors_p3.html')
-
-        profile = ProfileReport(tables["we_2018"], title="Profiling Report")
-        profile.to_file(output_file=f'src/output/profiling/we_2018.html')
-
-        profile = ProfileReport(tables["we_2019"], title="Profiling Report")
-        profile.to_file(output_file=f'src/output/profiling/we_2019.html')
-
-        profile = ProfileReport(tables["we_2020"], title="Profiling Report")
-        profile.to_file(output_file=f'src/output/profiling/we_2020.html')
-
-        print("Profiling done!")
+        return tml_visitors_ts
 
     def prepare_school_holidays(self):
         """
@@ -161,3 +167,21 @@ class DataPreparation:
 
         school_holidays = summer_holidays_y1.append(summer_holidays_y2)
         return school_holidays
+
+    def prepare_weather_data(self):
+        we_2018 = pd.read_excel(io="src/resources/weather data 2018.xlsx", header=1, sheet_name=None)
+        df_all_2018 = pd.concat(we_2018.values(), ignore_index=True)
+        apr = pd.read_excel(io="src/resources/weather data 2018.xlsx", skiprows=2, sheet_name='Apr', header=None)
+
+
+    def auto_correlation_plot(self):
+        """
+        Assess the effect of the past data over future using the Partial auto correlation plot
+
+        :return:
+        """
+
+        acf = plot_acf(visitors_ts['visitors_count'], lags=25)
+        pacf = plot_pacf(visitors_ts['visitors_count'], lags=25)
+
+        #TODO: consider if we need to do other things
