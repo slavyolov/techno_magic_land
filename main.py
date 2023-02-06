@@ -8,7 +8,9 @@ config = ConfigFactory.parse_file('config/COMMON.conf')
 
 if __name__ == '__main__':
     data_preparation = DataPreparation(config=config)
-    tables, visitors_ts, school_holidays = data_preparation.run()
+    tables, visitors_ts, school_holidays, combined_df = data_preparation.run()
+
+    combined_df.to_excel("src/output/data/tml_datamart.xlsx")
 
     # Plotting and additional check
 
@@ -16,7 +18,7 @@ if __name__ == '__main__':
     # data_preparation.data_profiling(tables)
 
     # Train model :
-    lr = LinearModel(config=config, input_data=visitors_ts)
+    lr = LinearModel(config=config, input_data=combined_df)
     # lr.prepare_input_data()
     lr.train()
     fraction = 0.8

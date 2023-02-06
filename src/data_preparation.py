@@ -4,7 +4,7 @@ from pandas_profiling import ProfileReport
 import matplotlib.pyplot as plt
 import numpy as np
 from feature_engine.creation import CyclicalFeatures
-from statsmodels.graphics.tsaplots import plot_pacf, plot_acf
+from datetime import datetime
 
 
 class DataPreparation:
@@ -19,13 +19,29 @@ class DataPreparation:
         """
         tables = self.read_data()
 
-        visitors_ts = self.prepare_tml_visitors_count(tables=tables)
-        school_holidays = self.prepare_school_holidays()
+        visitors_ts = self.prepare_tml_visitors_count(tables=tables, fill_gaps=True)
+        summer_holidays, winter_holidays, spring_holidays, school_exams, school_holidays = self.prepare_school_holidays()
         weather_df = self.prepare_weather_data()
-        # TODO: maybe filter from the TS holidays (Easter, Christmas, other - check the raw data ? )
-        # TODO: or include flag. Check availability and working days of the centre among these days
 
-        return tables, visitors_ts, school_holidays
+        # combine source tables
+        combined_df = pd.merge(visitors_ts, weather_df, left_on="Дата", right_on="Дата", how="inner")
+        combined_df = pd.merge(combined_df, summer_holidays, left_on="Дата", right_on="Дата", how="left")
+        combined_df = pd.merge(combined_df, winter_holidays, left_on="Дата", right_on="Дата", how="left")
+        combined_df = pd.merge(combined_df, spring_holidays, left_on="Дата", right_on="Дата", how="left")
+        combined_df = pd.merge(combined_df, school_exams, left_on="Дата", right_on="Дата", how="left")
+        combined_df = pd.merge(combined_df, school_holidays, left_on="Дата", right_on="Дата", how="left")
+
+        # fill in the missing public holidays in the school holidays column
+        combined_df["is_school_holiday"] = np.where(combined_df["is_public_holiday"] == 1, 1,
+                                                    combined_df["is_school_holiday"])
+
+        combined_df["is_summer_holiday"].fillna(0, inplace=True)
+        combined_df["is_winter_holiday"].fillna(0, inplace=True)
+        combined_df["is_spring_holiday"].fillna(0, inplace=True)
+        combined_df["school_exams"].fillna(0, inplace=True)
+        combined_df["is_school_holiday"].fillna(0, inplace=True)
+
+        return tables, visitors_ts, school_holidays, combined_df
 
     def read_data(self):
         xls = pd.ExcelFile('src/resources/TML_vistors_case_study_data.xlsx')
@@ -63,7 +79,7 @@ class DataPreparation:
 
         print("Profiling done!")
 
-    def prepare_tml_visitors_count(self, tables):
+    def prepare_tml_visitors_count(self, tables, fill_gaps=False):
         # Handle missing data for the 1st file
         tml_visitors_p1 = tables["tml_visitors_p1"].copy(deep=True)
 
@@ -92,40 +108,62 @@ class DataPreparation:
         # Thus these rows are considered outliers and are removed from the analysis
         tml_visitors_count = tml_visitors_count.iloc[3:]
 
-        # Add the weekday column
-        tml_visitors_count["weekday"] = tml_visitors_count['Дата'].dt.weekday + 1
-        print("Check weekday row count : ")
-        print(tml_visitors_count["weekday"].value_counts().sort_values())
+        # Add the day_of_week column
+        tml_visitors_count["day_of_week"] = tml_visitors_count['Дата'].dt.day_of_week + 1
+        print("Check day_of_week row count : ")
+        print(tml_visitors_count["day_of_week"].value_counts().sort_values())
         # From this it looks that the Monday is non working day for the TML.
         # There is only 1 observation that will be removed
-        tml_visitors_count = tml_visitors_count[tml_visitors_count["weekday"] != 1]
+        tml_visitors_count = tml_visitors_count[tml_visitors_count["day_of_week"] != 1]
 
-        # Check for Gaps in the timeseries data
-        tml_visitors_count['gap_in_days'] = tml_visitors_count['Дата'].sort_values().diff()
-        tml_visitors_count['gap_fg'] = tml_visitors_count['Дата'].sort_values().diff() > pd.to_timedelta('1 day')
+        if fill_gaps:
+            # Check for Gaps in the timeseries data
+            tml_visitors_count['gap_in_days'] = tml_visitors_count['Дата'].sort_values().diff()
+            tml_visitors_count['gap_fg'] = tml_visitors_count['Дата'].sort_values().diff() > pd.to_timedelta('1 day')
 
-        print("Max gap is : ", tml_visitors_count['gap_in_days'].max())
+            print("Max gap is : ", tml_visitors_count['gap_in_days'].max())
+            # Fix gaps (resample with interpolate : option spline)
+            # spline: Estimates values that minimize overall curvature, thus obtaining a smooth surface passing
+            # through the input points.
+            tml_visitors_ts = tml_visitors_count[['Дата', 'visitors_count']]
+            tml_visitors_ts.index = tml_visitors_ts['Дата']
+            tml_visitors_ts = tml_visitors_ts[["visitors_count"]]
+            tml_visitors_ts = tml_visitors_ts.resample('1D').mean().interpolate(option='spline')
+            tml_visitors_ts = tml_visitors_ts.reset_index()
+            tml_visitors_ts["day_of_week"] = tml_visitors_ts['Дата'].dt.day_of_week + 1
 
-        # Fix gaps (resample with interpolate : option spline)
-        # spline: Estimates values that minimize overall curvature, thus obtaining a smooth surface passing
-        # through the input points.
-        tml_visitors_ts = tml_visitors_count[['Дата', 'visitors_count']]
-        tml_visitors_ts.index = tml_visitors_ts['Дата']
-        tml_visitors_ts = tml_visitors_ts[["visitors_count"]]
-        tml_visitors_ts = tml_visitors_ts.resample('1D').mean().interpolate(option='spline')
-        tml_visitors_ts = tml_visitors_ts.reset_index()
-        tml_visitors_ts["weekday"] = tml_visitors_ts['Дата'].dt.weekday + 1
+            # Note : Monday is again removed (off day for the TML)
+            tml_visitors_ts = tml_visitors_ts[tml_visitors_ts["day_of_week"] != 1]
+        else:
+            tml_visitors_ts = tml_visitors_count.copy(deep=True)
 
-        # Note : Monday is again removed (off day for the TML)
-        tml_visitors_ts = tml_visitors_ts[tml_visitors_ts["weekday"] != 1]
+        # Lag y-1
+        tml_visitors_ts["visitors_count_lag_1"] = tml_visitors_ts["visitors_count"].shift(1)  # вчера
+        tml_visitors_ts["visitors_count_lag_2"] = tml_visitors_ts["visitors_count"].shift(2)
+        tml_visitors_ts["visitors_count_lag_3"] = tml_visitors_ts["visitors_count"].shift(3)
+        tml_visitors_ts["visitors_count_lag_7"] = tml_visitors_ts["visitors_count"].shift(7)  # преди 7 дни
+
+        # day_of_week mean (last 4 weeks mean)
+        tml_day_of_week_mean = tml_visitors_ts.copy(deep=True)
+        tml_day_of_week_mean.index = tml_day_of_week_mean['Дата']
+
+        tml_day_of_week_mean = tml_day_of_week_mean.groupby("day_of_week").rolling(4).visitors_count.mean()
+        tml_day_of_week_mean = pd.DataFrame(tml_day_of_week_mean).reset_index()
+        tml_day_of_week_mean = tml_day_of_week_mean.rename(columns={'visitors_count': 'visitors_day_of_week_mean'})
+        tml_day_of_week_mean = tml_day_of_week_mean[["Дата", "visitors_day_of_week_mean"]]
+
+        # TODO: do the same for 'min' and 'max'
+
+        # Combine the day_of_week mean to the main data frame
+        tml_visitors_ts = pd.merge(tml_visitors_ts, tml_day_of_week_mean, on="Дата", how="inner")
 
         # Add is_weekend flag
-        tml_visitors_ts['is_weekend'] = tml_visitors_ts['weekday'].isin([6, 7]).astype('int')
+        tml_visitors_ts['is_weekend'] = tml_visitors_ts['day_of_week'].isin([6, 7]).astype('int')
 
         # Encode the day as sine/cosine (cyclical feature).
-        # Hint divide by 6 because Monday is closed. Otherwise, we have 7 weekdays
-        tml_visitors_ts['weekday_sin'] = np.sin(tml_visitors_ts['weekday'] * (2 * np.pi / 6))
-        tml_visitors_ts['weekday_cos'] = np.cos(tml_visitors_ts['weekday'] * (2 * np.pi / 6))
+        # Hint divide by 6 because Monday is closed. Otherwise, we have 7 day_of_weeks
+        tml_visitors_ts['day_of_week_sin'] = np.sin(tml_visitors_ts['day_of_week'] * (2 * np.pi / 6))
+        tml_visitors_ts['day_of_week_cos'] = np.cos(tml_visitors_ts['day_of_week'] * (2 * np.pi / 6))
 
         # Add month column and encode sine/cosine
         tml_visitors_ts["month"] = tml_visitors_ts['Дата'].dt.month
@@ -134,6 +172,33 @@ class DataPreparation:
 
         # create new column that displays quarter from date column
         tml_visitors_ts['quarter'] = tml_visitors_ts['Дата'].dt.quarter
+
+        # one hot encoding weekday
+        tml_visitors_ts = pd.concat([tml_visitors_ts,
+                   pd.get_dummies(tml_visitors_ts['day_of_week'], drop_first=True, prefix="weekday")], axis=1)
+
+        # one hot encoding season
+        conditions = [
+            (tml_visitors_ts['month'].isin([12, 1, 2])),
+            (tml_visitors_ts['month'].isin([3, 4, 5])),
+            (tml_visitors_ts['month'].isin([6, 7, 8])),
+            (tml_visitors_ts['month'].isin([9, 10, 11])),
+        ]
+
+        # create a list of the values we want to assign for each condition
+        values = ['winter', 'spring', 'summer', 'autumn']
+
+        # create a new column and use np.select to assign values to it using our lists as arguments
+        tml_visitors_ts['season'] = np.select(conditions, values)
+
+        tml_visitors_ts = pd.concat([tml_visitors_ts,
+                   pd.get_dummies(tml_visitors_ts['season'])], axis=1)
+
+        # drop the winter column
+        tml_visitors_ts = tml_visitors_ts.drop('winter', axis=1)
+
+        # add public holidays
+        tml_visitors_ts["is_public_holiday"] = np.where(tml_visitors_ts["Дата"].isin(self.config.public_holidays), 1, 0)
 
         # Plot the final time series
         fig = plt.figure(figsize=(10, 4))
@@ -151,15 +216,41 @@ class DataPreparation:
         """
         # from 30.06 to 14.09 we have summer vacation. Take the big range
         summer_holidays_y1 = pd.DataFrame(pd.date_range(start='2018-06-30', end='2018-09-14'))
-        summer_holidays_y1 = summer_holidays_y1.rename(columns={0: 'Дата'})
-        summer_holidays_y1["is_summer_holiday"] = 1
-
         summer_holidays_y2 = pd.DataFrame(pd.date_range(start='2019-06-30', end='2019-09-14'))
-        summer_holidays_y2 = summer_holidays_y2.rename(columns={0: 'Дата'})
-        summer_holidays_y2["is_summer_holiday"] = 1
+        summer_holidays = summer_holidays_y1.append(summer_holidays_y2)
+        summer_holidays = summer_holidays.rename(columns={0: 'Дата'})
+        summer_holidays["is_summer_holiday"] = 1
 
-        school_holidays = summer_holidays_y1.append(summer_holidays_y2)
-        return school_holidays
+        # Winter holidays :
+        winter_h_y1 = pd.DataFrame(pd.date_range(start='2018-12-22', end='2019-01-02'))
+        winter_h_y2 = pd.DataFrame(pd.date_range(start='2019-12-21', end='2020-01-05'))
+        winter_holidays = winter_h_y1.append(winter_h_y2)
+        winter_holidays = winter_holidays.rename(columns={0: 'Дата'})
+        winter_holidays["is_winter_holiday"] = 1
+
+        # Spring school holidays
+        spring_holidays = pd.DataFrame(pd.date_range(start='2019-03-30', end='2019-04-04'))
+        spring_holidays = spring_holidays.rename(columns={0: 'Дата'})
+        spring_holidays["is_spring_holiday"] = 1
+
+        # Other holidays
+        school_exams = pd.DataFrame({"Дата": [datetime(2019, 5, 9), datetime(2019, 5, 10), datetime(2019, 5, 14),
+                                              datetime(2019, 5, 16)],
+                                     "school_exams": [1, 1, 1, 1]})
+
+        # combine all holidays
+        school_holidays = pd.DataFrame(
+            summer_holidays["Дата"]
+            .append(school_exams["Дата"])
+            .append(spring_holidays["Дата"])
+            .append(winter_holidays["Дата"])
+            .reset_index(drop=True)
+            .sort_values()
+                                       )
+
+        school_holidays["is_school_holiday"] = 1
+
+        return summer_holidays, winter_holidays, spring_holidays, school_exams, school_holidays
 
     def prepare_weather_data(self):
         """
@@ -196,7 +287,7 @@ class DataPreparation:
             df_all = pd.concat(df.values(), ignore_index=True)
             df_all.dropna(how="any", inplace=True)
             df_all = df_all.reset_index(drop=True)
-            df_all["Дата"] = pd.date_range(start=date_start, end=date_end, freq='1D').date
+            df_all["Дата"] = pd.date_range(start=date_start, end=date_end, freq='1D') #.date # uncomment if you want the date
             return df_all
 
         # Weather
@@ -215,32 +306,39 @@ class DataPreparation:
         # profile.to_file(output_file=f'src/output/profiling/weather_data_all_years.html')
 
         # Findings from the profiling :
-        # let's focus for now the average values
+        # let's focus for now the average values; Second iteration focus on MAX values
         # tmp_avg is highly correlated with dew_point and Humidity_avg - thus we can omit them for the time being
         # Assumption is that we are going to train OLS model
         # Precipitation column is uniform thus removed
 
-        focus_fields = ["Дата", "Temperature (°F)_Avg", "Wind Speed (mph)_Avg", "Pressure (in)_Avg"]
+        focus_fields = ["Дата", "Temperature (°F)_Max", "Wind Speed (mph)_Max", "Pressure (in)_Max"]
         weather_df = weather_df[focus_fields]
 
         # convert Fahrenhait to Celsius
-        weather_df["temperature_celsius_avg"] = (weather_df["Temperature (°F)_Avg"] - 32) * 5 / 9
+        weather_df["temperature_celsius_max"] = (weather_df["Temperature (°F)_Max"] - 32) * 5 / 9
 
         # convert mph to kph
-        weather_df["wind_speed_kph_avg"] = weather_df["Wind Speed (mph)_Avg"] * 1.60934
+        weather_df["wind_speed_kph_max"] = weather_df["Wind Speed (mph)_Max"] * 1.60934
 
-        weather_df = weather_df.rename(columns={'Pressure (in)_Avg': 'pressure_in_avg'})
+        weather_df = weather_df.rename(columns={'Pressure (in)_Max': 'pressure_in_max'})
 
-        return weather_df[["Дата", "temperature_celsius_avg", "wind_speed_kph_avg", "pressure_in_avg"]]
+        # create a list of the values we want to assign for each condition
+        conditions = [
+            (weather_df['temperature_celsius_max'].between(34, 42)),
+            (weather_df['temperature_celsius_max'].between(26, 33.99)),
+            (weather_df['temperature_celsius_max'].between(20, 25.99)),
+            (weather_df['temperature_celsius_max'].between(10, 19.99)),
+            (weather_df['temperature_celsius_max'].between(0, 9.99)),
+            (weather_df['temperature_celsius_max'].between(-20, -0.01)),
+        ]
 
-    def auto_correlation_plot(self):
-        """
-        Assess the effect of the past data over future using the Partial auto correlation plot
+        values = ['very hot', 'hot', 'warm', 'cool', 'cold', 'freezing']
 
-        :return:
-        """
+        # create a new column and use np.select to assign values to it using our lists as arguments
+        weather_df['weather_classification'] = np.select(conditions, values)
+        weather_df = pd.concat([weather_df, pd.get_dummies(weather_df['weather_classification'])], axis=1)
+        weather_df = weather_df.drop('freezing', axis=1)
 
-        acf = plot_acf(visitors_ts['visitors_count'], lags=25)
-        pacf = plot_pacf(visitors_ts['visitors_count'], lags=25)
-
-        #TODO: consider if we need to do other things
+        return weather_df[["Дата", "temperature_celsius_max", "wind_speed_kph_max", "pressure_in_max",
+                           'hot', 'warm', 'cool', 'cold'
+                           ]]
