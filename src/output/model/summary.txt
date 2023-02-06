@@ -1,26 +1,28 @@
                             OLS Regression Results                            
 ==============================================================================
-Dep. Variable:     log_visitors_count   R-squared:                       0.380
-Model:                            OLS   Adj. R-squared:                  0.376
-Method:                 Least Squares   F-statistic:                     86.57
-Date:                Mon, 06 Feb 2023   Prob (F-statistic):           1.09e-43
-Time:                        02:18:22   Log-Likelihood:                -570.22
-No. Observations:                 427   AIC:                             1148.
-Df Residuals:                     423   BIC:                             1165.
-Df Model:                           3                                         
+Dep. Variable:     log_visitors_count   R-squared:                       0.447
+Model:                            OLS   Adj. R-squared:                  0.441
+Method:                 Least Squares   F-statistic:                     68.12
+Date:                Tue, 07 Feb 2023   Prob (F-statistic):           4.51e-52
+Time:                        01:56:36   Log-Likelihood:                -545.86
+No. Observations:                 427   AIC:                             1104.
+Df Residuals:                     421   BIC:                             1128.
+Df Model:                           5                                         
 Covariance Type:            nonrobust                                         
-=================================================================================================
-                                    coef    std err          t      P>|t|      [0.025      0.975]
--------------------------------------------------------------------------------------------------
-const                            -0.6528      0.238     -2.744      0.006      -1.120      -0.185
-log_visitors_day_of_week_mean     0.8661      0.077     11.301      0.000       0.715       1.017
-log_visitors_count_lag_1          0.2223      0.040      5.516      0.000       0.143       0.301
-is_weekend                        0.2808      0.099      2.827      0.005       0.086       0.476
+============================================================================================
+                               coef    std err          t      P>|t|      [0.025      0.975]
+--------------------------------------------------------------------------------------------
+const                        1.3338      0.522      2.554      0.011       0.307       2.360
+log_visitors_count_mean      1.3622      0.270      5.036      0.000       0.830       1.894
+log_visitors_count_lag_1     0.2076      0.038      5.432      0.000       0.132       0.283
+log_visitors_count_std       0.7315      0.278      2.628      0.009       0.184       1.279
+log_visitors_count_min       0.3443      0.078      4.402      0.000       0.191       0.498
+log_visitors_count_max      -1.5956      0.464     -3.435      0.001      -2.509      -0.683
 ==============================================================================
-Omnibus:                       42.426   Durbin-Watson:                   1.819
-Prob(Omnibus):                  0.000   Jarque-Bera (JB):               52.416
-Skew:                          -0.806   Prob(JB):                     4.15e-12
-Kurtosis:                       3.592   Cond. No.                         25.2
+Omnibus:                        1.519   Durbin-Watson:                   1.743
+Prob(Omnibus):                  0.468   Jarque-Bera (JB):                1.340
+Skew:                          -0.049   Prob(JB):                        0.512
+Kurtosis:                       3.256   Cond. No.                         120.
 ==============================================================================
 
 Notes:

@@ -23,7 +23,11 @@ class LinearModel:
             self._dist_plot(variable_name="pressure_in_avg")
             self._dist_plot(variable_name="visitors_count_lag_7")
             self._dist_plot(variable_name="visitors_count_lag_1")
-            self._dist_plot(variable_name="visitors_day_of_week_mean")
+            self._dist_plot(variable_name="visitors_count_mean")
+            self._dist_plot(variable_name="visitors_count_min")
+            self._dist_plot(variable_name="visitors_count_max")
+            self._dist_plot(variable_name="visitors_count_std")
+            self._dist_plot(variable_name="visitors_count_median")
 
         # Log Transform the target variable because it is right skewed
         self.input_data[self.transformed_target] = np.log(self.input_data[self.target_variable])
@@ -31,7 +35,16 @@ class LinearModel:
         self.input_data["log_visitors_count_lag_2"] = np.log(self.input_data["visitors_count_lag_2"])
         self.input_data["log_visitors_count_lag_3"] = np.log(self.input_data["visitors_count_lag_3"])
         self.input_data["log_visitors_count_lag_7"] = np.log(self.input_data["visitors_count_lag_7"])
-        self.input_data["log_visitors_day_of_week_mean"] = np.log(self.input_data["visitors_day_of_week_mean"])
+        self.input_data["log_visitors_count_mean"] = np.log(self.input_data["visitors_count_mean"])
+        self.input_data["log_visitors_count_min"] = np.log(self.input_data["visitors_count_min"])
+        self.input_data["log_visitors_count_max"] = np.log(self.input_data["visitors_count_max"])
+        self.input_data["log_visitors_count_std"] = np.log(self.input_data["visitors_count_std"])
+        self.input_data["log_visitors_count_median"] = np.log(self.input_data["visitors_count_median"])
+
+        self.input_data["log_visitors_count_lag_5"] = np.log(self.input_data["visitors_count_lag_5"])
+        self.input_data["log_visitors_count_lag_9"] = np.log(self.input_data["visitors_count_lag_9"])
+        self.input_data["log_visitors_count_lag_10"] = np.log(self.input_data["visitors_count_lag_10"])
+        self.input_data["log_visitors_count_lag_11"] = np.log(self.input_data["visitors_count_lag_11"])
 
         #TODO : maybe log transform the wind speed per kph ?
 
@@ -67,39 +80,77 @@ class LinearModel:
         y = self.train_set[[self.transformed_target]]
 
         self.features =[
-            'log_visitors_day_of_week_mean',
+            'log_visitors_count_mean',
             'log_visitors_count_lag_1',
-            'is_weekend',
+            'log_visitors_count_std',
+            'log_visitors_count_min',
+            'log_visitors_count_max',
+
+            # "log_visitors_count_lag_5",
+            # "log_visitors_count_lag_9",
+            # "log_visitors_count_lag_10",
+            # "log_visitors_count_lag_11",
 
 
-            # 'log_visitors_count_lag_2',
-            # 'log_visitors_count_lag_3',
-            # 'log_visitors_count_lag_7',
-            # 'day_of_week_sin',
-            # 'day_of_week_cos',
-            # 'month_sin',
-            # 'month_cos',
-
-            #             # 'temperature_celsius_avg',
-            #             # 'wind_speed_kph_avg',
-            #             # 'pressure_in_avg',
-            #             'log_visitors_day_of_week_mean', 'log_visitors_count_lag_1', 'log_visitors_count_lag_7',
-            # 'is_school_holiday',
-            #             # 'school_exams', # no effect
-            #             # 'is_public_holiday' # multicolinearity with the other
-            # 'autumn',
-            # 'spring',
-            # 'summer',
-            # # 'is_summer_holiday', 'is_winter_holiday',
-            # # 'is_spring_holiday'
-            #
+            # 'hot', 'warm', 'cool', 'cold',
+            # # non relevant columns
+            # 'visitors_count_lag_2', 'visitors_count_lag_3', 'visitors_count_lag_7',
+            # 'is_weekend',
+            # 'day_of_week_sin', 'day_of_week_cos',
+            # # 'month',
+            # 'month_sin', 'month_cos',
+            # # 'quarter',
+            # # 'weekday_3', 'weekday_4', 'weekday_5', 'weekday_6', 'weekday_7',
+            # # 'season',
+            # 'autumn', 'spring', 'summer',
+            # # 'is_public_holiday',
+            # 'temperature_celsius_max',
+            # 'wind_speed_kph_max',
+            # 'pressure_in_max',
+            # # 'hot', 'warm', 'cool', 'cold',
+            # # 'is_summer_holiday',
+            # # 'is_winter_holiday', 'is_spring_holiday', 'school_exams',
+            # # 'is_school_holiday',
+            # 'school_day',
+            # 'log_visitors_count',
+            # 'log_visitors_count_lag_1', 'log_visitors_count_lag_2',
+            # 'log_visitors_count_lag_3', 'log_visitors_count_lag_7',
+            # 'log_visitors_count_mean', 'log_visitors_count_min',
+            # 'log_visitors_count_max', 'log_visitors_count_std',
+            # 'log_visitors_count_median'
         ]
+
         X = sm.add_constant(self.train_set[self.features])
         model = sm.OLS(endog=y, exog=X).fit()
 
         # Store the coefficients
         with open('src/output/model/summary.txt', 'w') as fh:
             fh.write(model.summary().as_text())
+
+
+        # Synergy :
+        self.features =[
+            'log_visitors_count_mean',
+            'log_visitors_count_lag_1',
+            'log_visitors_count_std',
+            'log_visitors_count_min',
+            'log_visitors_count_max',
+
+            'is_weekend',
+            'is_school_holiday',
+            'is_public_holiday',
+            'is_summer_holiday',
+            'is_winter_holiday',
+            'is_spring_holiday',
+        ]
+        X = sm.add_constant(self.train_set[self.features])
+        from sklearn.preprocessing import PolynomialFeatures  # generating interaction terms
+        x_interaction = PolynomialFeatures(2, interaction_only=True, include_bias=False).fit_transform(
+            X)  # creating a new dataframe with the interaction terms included
+        interaction_df = pd.DataFrame(x_interaction)
+
+        X = sm.add_constant(interaction_df)
+        sm.OLS(y, X).fit()
 
         # train random forest
         from sklearn.model_selection import GridSearchCV
@@ -168,3 +219,8 @@ class LinearModel:
         plt.close()
 
     # https://colab.research.google.com/drive/1rAu9GthiODGt1sWbXPwJj9T3bJ7NuUGI#scrollTo=xn2veWYXSoOh&uniqifier=1
+
+
+    # TODO: tmp
+    # sm.graphics.tsa.plot_acf(self.train_set['visitors_count'], lags=40)
+    # sm.graphics.tsa.plot_pacf(self.train_set['visitors_count'], lags=40)

@@ -19,7 +19,7 @@ class DataPreparation:
         """
         tables = self.read_data()
 
-        visitors_ts = self.prepare_tml_visitors_count(tables=tables, fill_gaps=True)
+        visitors_ts = self.prepare_tml_visitors_count(tables=tables, fill_gaps=True) #TODO: ddecide if true or false
         summer_holidays, winter_holidays, spring_holidays, school_exams, school_holidays = self.prepare_school_holidays()
         weather_df = self.prepare_weather_data()
 
@@ -40,6 +40,10 @@ class DataPreparation:
         combined_df["is_spring_holiday"].fillna(0, inplace=True)
         combined_df["school_exams"].fillna(0, inplace=True)
         combined_df["is_school_holiday"].fillna(0, inplace=True)
+
+        # get school day :
+        combined_df['school_day'] = np.where((combined_df["is_weekend"] == 0) &
+                                             (combined_df["is_school_holiday"] == 0), 1, 0)
 
         return tables, visitors_ts, school_holidays, combined_df
 
@@ -143,19 +147,27 @@ class DataPreparation:
         tml_visitors_ts["visitors_count_lag_3"] = tml_visitors_ts["visitors_count"].shift(3)
         tml_visitors_ts["visitors_count_lag_7"] = tml_visitors_ts["visitors_count"].shift(7)  # преди 7 дни
 
+        tml_visitors_ts["visitors_count_lag_5"] = tml_visitors_ts["visitors_count"].shift(5)  # преди 7 дни
+        tml_visitors_ts["visitors_count_lag_9"] = tml_visitors_ts["visitors_count"].shift(9)  # преди 7 дни
+        tml_visitors_ts["visitors_count_lag_10"] = tml_visitors_ts["visitors_count"].shift(10)  # преди 7 дни
+        tml_visitors_ts["visitors_count_lag_11"] = tml_visitors_ts["visitors_count"].shift(11)  # преди 7 дни
+
         # day_of_week mean (last 4 weeks mean)
-        tml_day_of_week_mean = tml_visitors_ts.copy(deep=True)
-        tml_day_of_week_mean.index = tml_day_of_week_mean['Дата']
+        tml_day_of_week_rolling = tml_visitors_ts.copy(deep=True)
+        tml_day_of_week_rolling.index = tml_day_of_week_rolling['Дата']
 
-        tml_day_of_week_mean = tml_day_of_week_mean.groupby("day_of_week").rolling(4).visitors_count.mean()
-        tml_day_of_week_mean = pd.DataFrame(tml_day_of_week_mean).reset_index()
-        tml_day_of_week_mean = tml_day_of_week_mean.rename(columns={'visitors_count': 'visitors_day_of_week_mean'})
-        tml_day_of_week_mean = tml_day_of_week_mean[["Дата", "visitors_day_of_week_mean"]]
+        tml_day_of_week_rolling = tml_day_of_week_rolling.groupby("day_of_week").rolling(4).agg(
+            {'visitors_count': [np.mean, np.min, np.max, np.median, np.std]})
 
-        # TODO: do the same for 'min' and 'max'
+        tml_day_of_week_rolling.columns = ["_".join(x) for x in tml_day_of_week_rolling.columns.ravel()]
+        tml_day_of_week_rolling = tml_day_of_week_rolling.reset_index()
+        tml_day_of_week_rolling = tml_day_of_week_rolling.drop('day_of_week', axis=1)
+        tml_day_of_week_rolling.columns = ['Дата', 'visitors_count_mean', 'visitors_count_min',
+                                           'visitors_count_max', 'visitors_count_median', 'visitors_count_std']
+
 
         # Combine the day_of_week mean to the main data frame
-        tml_visitors_ts = pd.merge(tml_visitors_ts, tml_day_of_week_mean, on="Дата", how="inner")
+        tml_visitors_ts = pd.merge(tml_visitors_ts, tml_day_of_week_rolling, on="Дата", how="inner")
 
         # Add is_weekend flag
         tml_visitors_ts['is_weekend'] = tml_visitors_ts['day_of_week'].isin([6, 7]).astype('int')
