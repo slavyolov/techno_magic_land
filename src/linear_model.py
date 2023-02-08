@@ -2,6 +2,8 @@ import seaborn as sns
 import statsmodels.api as sm
 import matplotlib.pyplot as plt
 import numpy as np
+import pandas as pd
+from sklearn.metrics import mean_absolute_error as mae
 
 
 class LinearModel:
@@ -13,6 +15,7 @@ class LinearModel:
         self.features = self.config.lr_model.features
         self.train_set = None
         self.test_set = None
+        self.model = None
 
     def prepare_input_data(self, get_plots=True):
         if get_plots:
@@ -89,19 +92,44 @@ class LinearModel:
         ]
 
         X_best = sm.add_constant(self.train_set[best_features])
-        model_best = sm.OLS(endog=y, exog=X_best).fit()
+        self.model = sm.OLS(endog=y, exog=X_best).fit()
 
         # Store the coefficients
         with open('src/output/model/summary_best_features.txt', 'w') as fh:
-            fh.write(model_best.summary().as_text())
+            fh.write(self.model.summary().as_text())
 
         return model
 
     def predict(self):
-        pass
+        best_features = [
+            'log_visitors_count_mean',
+            'log_visitors_count_lag_1',
+            'log_visitors_count_std',
+            'log_visitors_count_min',
+            'log_visitors_count_max',
+        ]
 
-    def validate(self):
-        pass
+        # Train the model
+        y_test = self.test_set[[self.transformed_target]]
+
+        # 1st iteration - test with all prepared features
+        X_test = sm.add_constant(self.test_set[best_features])
+
+        # predictions
+        y_pred = self.model.predict(X_test)
+
+        evaluate = pd.DataFrame(y_test)
+        evaluate = evaluate.rename(columns={'log_visitors_count': 'y_test'})
+        evaluate["y_pred"] = y_pred
+
+        # error = mae(y_test, y_pred) # TODO: check
+
+        #TODO: backtransformation of the loagrithm - todo check if true
+        evaluate["y_test"] = np.exp(evaluate["y_test"])
+        evaluate["y_pred"] = np.exp(evaluate["y_pred"])
+
+        # print(error)
+        print(evaluate.plot())
 
     def _dist_plot(self, variable_name: str):
         fig = plt.figure(figsize=(10, 4))

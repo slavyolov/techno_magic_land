@@ -1,30 +1,61 @@
                             OLS Regression Results                            
 ==============================================================================
-Dep. Variable:     log_visitors_count   R-squared:                       0.403
-Model:                            OLS   Adj. R-squared:                  0.393
-Method:                 Least Squares   F-statistic:                     40.33
-Date:                Wed, 08 Feb 2023   Prob (F-statistic):           1.95e-37
-Time:                        03:02:24   Log-Likelihood:                -487.70
-No. Observations:                 365   AIC:                             989.4
-Df Residuals:                     358   BIC:                             1017.
-Df Model:                           6                                         
+Dep. Variable:     log_visitors_count   R-squared:                       0.457
+Model:                            OLS   Adj. R-squared:                  0.406
+Method:                 Least Squares   F-statistic:                     9.039
+Date:                Wed, 08 Feb 2023   Prob (F-statistic):           8.60e-29
+Time:                        03:21:21   Log-Likelihood:                -460.39
+No. Observations:                 365   AIC:                             984.8
+Df Residuals:                     333   BIC:                             1110.
+Df Model:                          31                                         
 Covariance Type:            nonrobust                                         
-============================================================================================
-                               coef    std err          t      P>|t|      [0.025      0.975]
---------------------------------------------------------------------------------------------
-const                        0.9296      0.605      1.537      0.125      -0.260       2.119
-log_visitors_count_mean      1.0552      0.331      3.188      0.002       0.404       1.706
-log_visitors_count_lag_1     0.1103      0.042      2.616      0.009       0.027       0.193
-log_visitors_count_std       0.4948      0.321      1.540      0.125      -0.137       1.127
-log_visitors_count_min       0.3758      0.089      4.224      0.000       0.201       0.551
-log_visitors_count_max      -1.0231      0.545     -1.878      0.061      -2.094       0.048
-visitors_count_month_avg     0.0021      0.008      0.257      0.797      -0.014       0.018
+=============================================================================================
+                                coef    std err          t      P>|t|      [0.025      0.975]
+---------------------------------------------------------------------------------------------
+const                        15.9866     10.316      1.550      0.122      -4.307      36.280
+log_visitors_count_mean      -0.4718      0.885     -0.533      0.594      -2.212       1.269
+log_visitors_count_lag_1      0.1130      0.045      2.512      0.012       0.025       0.202
+log_visitors_count_std        0.3504      0.381      0.920      0.358      -0.399       1.100
+log_visitors_count_min        0.4688      0.097      4.840      0.000       0.278       0.659
+log_visitors_count_max       -0.0313      0.909     -0.034      0.973      -1.819       1.756
+log_visitors_count_median     0.5632      0.297      1.896      0.059      -0.021       1.148
+log_visitors_count_lag_5     -0.0482      0.046     -1.060      0.290      -0.138       0.041
+log_visitors_count_lag_9      0.0529      0.046      1.159      0.247      -0.037       0.143
+log_visitors_count_lag_10     0.0123      0.047      0.261      0.794      -0.080       0.105
+log_visitors_count_lag_11     0.0457      0.046      0.994      0.321      -0.045       0.136
+hot                           0.2205      0.370      0.596      0.552      -0.508       0.949
+warm                          0.2921      0.314      0.929      0.354      -0.326       0.910
+cool                          0.1971      0.240      0.823      0.411      -0.274       0.668
+cold                          0.2938      0.163      1.800      0.073      -0.027       0.615
+is_weekend                   -0.0140      0.215     -0.065      0.948      -0.437       0.409
+day_of_week_sin              -0.0524      0.095     -0.553      0.580      -0.238       0.134
+day_of_week_cos               0.0211      0.126      0.168      0.867      -0.226       0.269
+month_sin                    -0.1506      0.221     -0.681      0.496      -0.586       0.284
+month_cos                     0.3164      0.196      1.618      0.107      -0.068       0.701
+autumn                       -0.2004      0.343     -0.585      0.559      -0.875       0.474
+spring                        0.3425      0.301      1.139      0.256      -0.249       0.934
+summer                       -0.0784      0.361     -0.217      0.828      -0.788       0.632
+is_public_holiday            -0.1575      0.548     -0.287      0.774      -1.236       0.921
+temperature_celsius_max       0.0087      0.024      0.363      0.717      -0.038       0.056
+wind_speed_kph_max           -0.0082      0.007     -1.111      0.267      -0.023       0.006
+pressure_in_max              -0.5641      0.359     -1.573      0.117      -1.270       0.141
+hot                           0.2205      0.370      0.596      0.552      -0.508       0.949
+warm                          0.2921      0.314      0.929      0.354      -0.326       0.910
+cool                          0.1971      0.240      0.823      0.411      -0.274       0.668
+cold                          0.2938      0.163      1.800      0.073      -0.027       0.615
+is_summer_holiday            -0.3197      0.653     -0.490      0.625      -1.603       0.964
+is_winter_holiday             0.1465      0.698      0.210      0.834      -1.227       1.520
+is_spring_holiday             0.2707      0.766      0.354      0.724      -1.236       1.777
+school_exams                 -0.6191      0.936     -0.661      0.509      -2.461       1.223
+is_school_holiday             0.1749      0.653      0.268      0.789      -1.109       1.459
 ==============================================================================
-Omnibus:                        0.293   Durbin-Watson:                   1.862
-Prob(Omnibus):                  0.864   Jarque-Bera (JB):                0.182
-Skew:                           0.049   Prob(JB):                        0.913
-Kurtosis:                       3.049   Cond. No.                         536.
+Omnibus:                        2.100   Durbin-Watson:                   1.947
+Prob(Omnibus):                  0.350   Jarque-Bera (JB):                1.880
+Skew:                          -0.109   Prob(JB):                        0.391
+Kurtosis:                       3.276   Cond. No.                     1.01e+16
 ==============================================================================
 
 Notes:
 [1] Standard Errors assume that the covariance matrix of the errors is correctly specified.
+[2] The smallest eigenvalue is 6.36e-27. This might indicate that there are
+strong multicollinearity problems or that the design matrix is singular.
