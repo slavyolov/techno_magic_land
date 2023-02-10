@@ -16,6 +16,10 @@ class LinearModel:
         self.train_set = None
         self.test_set = None
         self.model = None
+        self.model_2 = None
+        self.model_3 = None
+        self.best_features = None
+
 
     def prepare_input_data(self, get_plots=True):
         if get_plots:
@@ -76,16 +80,14 @@ class LinearModel:
 
         self.train_set = self._outlier_removal(from_both=False)
 
-        # TODO: exclude first mont from the modeling
-
         print("input data was prepared!")
 
         self._outlier_removal(from_both=True).to_excel("src/output/data/tml_datamart.xlsx")
         print("Storing output file for additional modeling")
 
-    def train(self):
+    def train(self, version):
         # prepare input data :
-        self.prepare_input_data(get_plots=True)
+        self.prepare_input_data(get_plots=False)
 
         # Statistics for the training :
         print("Target variable model with the following features : ", self.transformed_target)
@@ -97,77 +99,71 @@ class LinearModel:
 
         # 1st iteration - test with all prepared features
         X = sm.add_constant(self.train_set[self.features])
-        model = sm.OLS(endog=y, exog=X).fit()
+        self.model = sm.OLS(endog=y, exog=X).fit()
 
         # Store the coefficients
         with open('src/output/model/summary_all_features.txt', 'w') as fh:
-            fh.write(model.summary().as_text())
+            fh.write(self.model.summary().as_text())
 
         # 2nd iteration - select optimal features after backward elimination
-        best_features = [
-            # 'log_visitors_count_mean',
+        self.best_features = [
+            'log_visitors_count_mean',
             'log_visitors_count_lag_1',
-            # 'log_visitors_count_std',
-            # 'log_visitors_count_min',
-            # 'log_visitors_count_max',
-
-            "log_visitors_count_median",
-            "is_weekend",
-
+            'log_visitors_count_std',
+            'log_visitors_count_min',
+            'log_visitors_count_max',
         ]
 
-        X_best = sm.add_constant(self.train_set[best_features])
-        self.model = sm.OLS(endog=y, exog=X_best).fit()
+        X_best = sm.add_constant(self.train_set[self.best_features])
+        self.model_2 = sm.OLS(endog=y, exog=X_best).fit()
 
         # Store the coefficients
         with open('src/output/model/summary_best_features.txt', 'w') as fh:
-            fh.write(self.model.summary().as_text())
+            fh.write(self.model_2.summary().as_text())
 
-        return model
-
-    def predict(self):
-        best_features = [
-            # 'log_visitors_count_mean',
+        # 3rd iteration : select optimal features after backward elimination
+        self.new_features = [
             'log_visitors_count_lag_1',
-            # 'log_visitors_count_std',
-            # 'log_visitors_count_min',
-            # 'log_visitors_count_max',
-
             "log_visitors_count_median",
             "is_weekend",
-
         ]
 
-        # Train the model
-        y_test = self.test_set[[self.transformed_target]]
+        X_third = sm.add_constant(self.train_set[self.new_features])
+        self.model_3 = sm.OLS(endog=y, exog=X_third).fit()
 
-        # 1st iteration - test with all prepared features
-        X_test = sm.add_constant(self.test_set[best_features])
+        # Store the coefficients
+        with open('src/output/model/summary_3rd_version.txt', 'w') as fh:
+            fh.write(self.model_3.summary().as_text())
 
-        # predictions
-        y_pred = self.model.predict(X_test)
+    def predict(self):
+        model_d = {self.model: self.features,
+                   self.model_2: self.best_features,
+                   self.model_3: self.new_features,
+                   }
+        for index, (model, features) in enumerate(model_d.items()):
+            y_test = self.test_set[[self.transformed_target]]
 
-        evaluate = pd.DataFrame(y_test)
-        evaluate = evaluate.rename(columns={'log_visitors_count': 'y_test'})
-        evaluate["y_pred"] = y_pred
+            # 1st iteration - test with all prepared features
+            X_test = sm.add_constant(self.test_set[features])
 
-        # error = mae(y_test, y_pred) # TODO: check
+            # predictions
+            y_pred = model.predict(X_test)
 
-        #TODO: backtransformation of the loagrithm - todo check if true
-        evaluate["y_test"] = np.exp(evaluate["y_test"])
-        evaluate["y_pred"] = np.exp(evaluate["y_pred"])
+            evaluate = pd.DataFrame(y_test)
+            evaluate = evaluate.rename(columns={'log_visitors_count': 'y_test'})
+            evaluate["y_pred"] = y_pred
 
-        # year = 2019
-        # fig, ax = plt.subplots()
-        # fig.set_size_inches((12, 4))
-        # sns.boxplot(x='season', y='visitors_count',
-        #             data=tml_visitors_ts[tml_visitors_ts["Дата"].between(f'{year}-01-01',
-        #                                                                  f'{year}-12-31')].copy(deep=True), ax=ax)
-        # fig.savefig(f'src/output/plots/eda/box_plot_per_season_for_{year}.png', bbox_inches="tight")
-        # plt.close()
+            # Backtransform
+            evaluate["y_test"] = np.exp(evaluate["y_test"])
+            evaluate["y_pred"] = np.exp(evaluate["y_pred"])
 
-        # print(error)
-        print(evaluate.plot())
+            # Get MAE
+            error = mae(y_test, y_pred)
+
+            # Get MAPE
+            MAPE = self.mape(actual=evaluate["y_test"], pred=evaluate["y_pred"])
+
+            self._predictions_plot(df=evaluate, error=MAPE, version=index)
 
     def _dist_plot(self, variable_name: str):
         fig = plt.figure(figsize=(10, 4))
@@ -223,3 +219,16 @@ class LinearModel:
         plt.close()
 
         return df_filtered
+
+    def _predictions_plot(self, df, error, version):
+        fig, ax = plt.subplots()
+        fig.set_size_inches((12, 4))
+        plt.title(f"MAPE : {round(error, 2)}")
+        sns.lineplot(data=df[['y_test', 'y_pred']])
+        fig.savefig(f'src/output/model/predicitons_w_version_{version}.png', bbox_inches="tight")
+        plt.close()
+
+    @staticmethod
+    def mape(actual, pred):
+        actual, pred = np.array(actual), np.array(pred)
+        return np.mean(np.abs((actual - pred) / actual)) * 100

@@ -15,10 +15,16 @@ if __name__ == '__main__':
 
     # Train model :
     lr = LinearModel(config=config, input_data=combined_df)
-    lr.train()
-
-    # Predictions
+    lr.train(version=1)
     lr.predict()
+
+    lr.train(version=2)
+    lr.predict()
+
+    lr.train(version=3)
+    lr.predict()
+    # Predictions
+
 
     # Other experiments :
     # https://colab.research.google.com/drive/1rAu9GthiODGt1sWbXPwJj9T3bJ7NuUGI#scrollTo=xn2veWYXSoOh&uniqifier=1

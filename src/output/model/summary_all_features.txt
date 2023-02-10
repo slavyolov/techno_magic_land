@@ -1,61 +1,61 @@
                             OLS Regression Results                            
 ==============================================================================
-Dep. Variable:     log_visitors_count   R-squared:                       0.465
-Model:                            OLS   Adj. R-squared:                  0.415
-Method:                 Least Squares   F-statistic:                     9.266
-Date:                Fri, 10 Feb 2023   Prob (F-statistic):           1.88e-29
-Time:                        01:49:52   Log-Likelihood:                -460.53
-No. Observations:                 362   AIC:                             985.1
-Df Residuals:                     330   BIC:                             1110.
+Dep. Variable:     log_visitors_count   R-squared:                       0.481
+Model:                            OLS   Adj. R-squared:                  0.430
+Method:                 Least Squares   F-statistic:                     9.420
+Date:                Fri, 10 Feb 2023   Prob (F-statistic):           1.59e-29
+Time:                        03:02:02   Log-Likelihood:                -432.24
+No. Observations:                 347   AIC:                             928.5
+Df Residuals:                     315   BIC:                             1052.
 Df Model:                          31                                         
 Covariance Type:            nonrobust                                         
 =============================================================================================
                                 coef    std err          t      P>|t|      [0.025      0.975]
 ---------------------------------------------------------------------------------------------
-const                        10.7980     10.286      1.050      0.295      -9.437      31.033
-log_visitors_count_mean      -0.5601      0.813     -0.689      0.492      -2.160       1.040
-log_visitors_count_lag_1      0.1303      0.045      2.897      0.004       0.042       0.219
-log_visitors_count_std        0.2513      0.395      0.637      0.525      -0.525       1.028
-log_visitors_count_min        0.4198      0.094      4.467      0.000       0.235       0.605
-log_visitors_count_max        0.1287      0.888      0.145      0.885      -1.619       1.876
-log_visitors_count_median     0.6504      0.258      2.523      0.012       0.143       1.158
-log_visitors_count_lag_5     -0.0307      0.046     -0.670      0.503      -0.121       0.059
-log_visitors_count_lag_9      0.0675      0.046      1.483      0.139      -0.022       0.157
-log_visitors_count_lag_10    -0.0414      0.047     -0.877      0.381      -0.134       0.051
-log_visitors_count_lag_11     0.0281      0.045      0.621      0.535      -0.061       0.117
-hot                           0.1177      0.376      0.313      0.754      -0.621       0.857
-warm                          0.1947      0.320      0.609      0.543      -0.434       0.824
-cool                          0.1335      0.243      0.549      0.583      -0.345       0.612
-cold                          0.2440      0.165      1.479      0.140      -0.081       0.568
-is_weekend                   -0.0031      0.219     -0.014      0.989      -0.433       0.427
-day_of_week_sin              -0.0648      0.096     -0.675      0.500      -0.254       0.124
-day_of_week_cos               0.0453      0.126      0.359      0.720      -0.203       0.293
-month_sin                    -0.1403      0.224     -0.627      0.531      -0.580       0.300
-month_cos                     0.1817      0.199      0.912      0.362      -0.210       0.574
-autumn                       -0.3135      0.343     -0.915      0.361      -0.988       0.361
-spring                        0.1380      0.298      0.464      0.643      -0.448       0.724
-summer                       -0.3435      0.360     -0.955      0.340      -1.051       0.364
-is_public_holiday            -0.1280      0.555     -0.231      0.818      -1.219       0.963
-temperature_celsius_max       0.0139      0.025      0.565      0.572      -0.035       0.062
-wind_speed_kph_max           -0.0038      0.007     -0.504      0.614      -0.018       0.011
-pressure_in_max              -0.3836      0.357     -1.073      0.284      -1.087       0.320
-hot                           0.1177      0.376      0.313      0.754      -0.621       0.857
-warm                          0.1947      0.320      0.609      0.543      -0.434       0.824
-cool                          0.1335      0.243      0.549      0.583      -0.345       0.612
-cold                          0.2440      0.165      1.479      0.140      -0.081       0.568
-is_summer_holiday            -0.2302      0.659     -0.349      0.727      -1.527       1.066
-is_winter_holiday             0.1847      0.706      0.262      0.794      -1.204       1.574
-is_spring_holiday             0.4070      0.776      0.525      0.600      -1.119       1.933
-school_exams                 -0.6806      0.691     -0.985      0.326      -2.041       0.679
-is_school_holiday             0.1346      0.659      0.204      0.838      -1.163       1.432
+const                         8.2822     10.379      0.798      0.425     -12.139      28.704
+log_visitors_count_mean      -0.5392      0.808     -0.667      0.505      -2.130       1.051
+log_visitors_count_lag_1      0.1274      0.046      2.799      0.005       0.038       0.217
+log_visitors_count_std        0.2515      0.396      0.635      0.526      -0.528       1.031
+log_visitors_count_min        0.4392      0.097      4.547      0.000       0.249       0.629
+log_visitors_count_max        0.1024      0.889      0.115      0.908      -1.647       1.852
+log_visitors_count_median     0.6088      0.256      2.375      0.018       0.104       1.113
+log_visitors_count_lag_5     -0.0349      0.046     -0.760      0.448      -0.125       0.055
+log_visitors_count_lag_9      0.0720      0.046      1.579      0.115      -0.018       0.162
+log_visitors_count_lag_10    -0.0294      0.047     -0.625      0.533      -0.122       0.063
+log_visitors_count_lag_11     0.0234      0.045      0.519      0.604      -0.065       0.112
+hot                           0.3225      0.381      0.847      0.397      -0.426       1.071
+warm                          0.3662      0.324      1.131      0.259      -0.271       1.003
+cool                          0.2871      0.247      1.164      0.245      -0.198       0.772
+cold                          0.2859      0.163      1.757      0.080      -0.034       0.606
+is_weekend                   -0.1066      0.219     -0.486      0.627      -0.538       0.325
+day_of_week_sin              -0.0322      0.096     -0.337      0.737      -0.220       0.156
+day_of_week_cos               0.0982      0.126      0.778      0.437      -0.150       0.347
+month_sin                    -0.2097      0.221     -0.949      0.343      -0.644       0.225
+month_cos                     0.0936      0.208      0.451      0.652      -0.315       0.502
+autumn                       -0.4744      0.346     -1.369      0.172      -1.156       0.207
+spring                        0.0519      0.295      0.176      0.860      -0.528       0.632
+summer                       -0.4961      0.367     -1.351      0.178      -1.219       0.226
+is_public_holiday            -0.1340      0.542     -0.247      0.805      -1.200       0.932
+temperature_celsius_max      -0.0006      0.025     -0.025      0.980      -0.050       0.048
+wind_speed_kph_max           -0.0057      0.008     -0.752      0.452      -0.021       0.009
+pressure_in_max              -0.2858      0.362     -0.789      0.431      -0.998       0.427
+hot                           0.3225      0.381      0.847      0.397      -0.426       1.071
+warm                          0.3662      0.324      1.131      0.259      -0.271       1.003
+cool                          0.2871      0.247      1.164      0.245      -0.198       0.772
+cold                          0.2859      0.163      1.757      0.080      -0.034       0.606
+is_summer_holiday            -0.2585      0.644     -0.401      0.688      -1.526       1.009
+is_winter_holiday             0.1446      0.690      0.210      0.834      -1.213       1.502
+is_spring_holiday             0.3986      0.758      0.526      0.599      -1.093       1.890
+school_exams                 -0.6593      0.676     -0.976      0.330      -1.988       0.670
+is_school_holiday             0.1594      0.644      0.247      0.805      -1.108       1.427
 ==============================================================================
-Omnibus:                        2.306   Durbin-Watson:                   1.962
-Prob(Omnibus):                  0.316   Jarque-Bera (JB):                2.292
-Skew:                          -0.051   Prob(JB):                        0.318
-Kurtosis:                       3.376   Cond. No.                     1.01e+16
+Omnibus:                        2.869   Durbin-Watson:                   1.980
+Prob(Omnibus):                  0.238   Jarque-Bera (JB):                3.127
+Skew:                           0.030   Prob(JB):                        0.209
+Kurtosis:                       3.461   Cond. No.                     1.01e+16
 ==============================================================================
 
 Notes:
 [1] Standard Errors assume that the covariance matrix of the errors is correctly specified.
-[2] The smallest eigenvalue is 6.28e-27. This might indicate that there are
+[2] The smallest eigenvalue is 6.03e-27. This might indicate that there are
 strong multicollinearity problems or that the design matrix is singular.
