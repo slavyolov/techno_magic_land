@@ -4,7 +4,7 @@ Dep. Variable:     log_visitors_count   R-squared:                       0.403
 Model:                            OLS   Adj. R-squared:                  0.397
 Method:                 Least Squares   F-statistic:                     77.06
 Date:                Fri, 10 Feb 2023   Prob (F-statistic):           4.01e-38
-Time:                        03:12:39   Log-Likelihood:                -456.67
+Time:                        14:46:12   Log-Likelihood:                -456.67
 No. Observations:                 347   AIC:                             921.3
 Df Residuals:                     343   BIC:                             936.7
 Df Model:                           3                                         

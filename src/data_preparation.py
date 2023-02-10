@@ -307,6 +307,9 @@ class DataPreparation:
         fig.savefig(f'src/output/plots/eda/box_plot_per_season_for_{year}.png', bbox_inches="tight")
         plt.close()
 
+        # Stationarity test
+        self.stationary_test(y=tml_visitors_ts["visitors_count"])
+
         return tml_visitors_ts
 
     def prepare_school_holidays(self) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame]:
@@ -453,3 +456,22 @@ class DataPreparation:
         sns.boxplot(x='month', y='visitors_count', data=data, ax=ax)
         fig.savefig(f'src/output/plots/eda/box_plot_per_month_for_{year}.png', bbox_inches="tight")
         plt.close()
+
+    def stationary_test(self, y):
+        # ADF Test
+        from statsmodels.tsa.stattools import adfuller
+
+        # Where 'y' (target variable) must be pandas.core.series.Series
+        result = adfuller(y, autolag='AIC')
+
+        print('ADF Statistic: %f' % result[0])
+        print('p-value: %f' % result[1])
+        print('Critical Values:')
+
+        for key, value in result[4].items():
+            print('\t%s: %.3f' % (key, value))
+
+        if result[0] < result[4]["5%"]:
+            print("Reject Ho - Time Series is Stationary")
+        else:
+            print("Failed to Reject Ho - Time Series is Non-Stationary")

@@ -4,6 +4,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 from sklearn.metrics import mean_absolute_error as mae
+from scipy import stats
+import statsmodels.stats.api as sms
 
 
 class LinearModel:
@@ -19,7 +21,6 @@ class LinearModel:
         self.model_2 = None
         self.model_3 = None
         self.best_features = None
-
 
     def prepare_input_data(self, get_plots=True):
         if get_plots:
@@ -135,6 +136,9 @@ class LinearModel:
         with open('src/output/model/summary_3rd_version.txt', 'w') as fh:
             fh.write(self.model_3.summary().as_text())
 
+        # assumptions for best model only
+        self.assumptions(model=self.model_2, y=y)
+
     def predict(self):
         model_d = {self.model: self.features,
                    self.model_2: self.best_features,
@@ -232,3 +236,99 @@ class LinearModel:
     def mape(actual, pred):
         actual, pred = np.array(actual), np.array(pred)
         return np.mean(np.abs((actual - pred) / actual)) * 100
+
+    def assumptions(self, model, y):
+        self.linearity_test(model, y)
+        self.normality_of_residuals_test(model)
+        self.normality_of_residuals_test(model)
+        print("Mean of residuals : ", model.resid.mean())
+
+        # Autocorelation test
+        import statsmodels.tsa.api as smt
+
+        acf = smt.graphics.plot_acf(model.resid, lags=40, alpha=0.05)
+        acf.show()
+        print("DONE!")
+
+    def linearity_test(self, model, y):
+        '''
+        Function for visually inspecting the assumption of linearity in a linear regression model.
+        It plots observed vs. predicted values and residuals vs. predicted values.
+
+        Args:
+        * model - fitted OLS model from statsmodels
+        * y - observed values
+        '''
+        fitted_vals = model.predict()
+        resids = model.resid
+
+        fig, ax = plt.subplots(1, 2)
+
+        sns.regplot(x=fitted_vals, y=y, lowess=True, ax=ax[0], line_kws={'color': 'red'})
+        ax[0].set_title('Observed vs. Predicted Values', fontsize=16)
+        ax[0].set(xlabel='Predicted', ylabel='Observed')
+
+        sns.regplot(x=fitted_vals, y=resids, lowess=True, ax=ax[1], line_kws={'color': 'red'})
+        ax[1].set_title('Residuals vs. Predicted Values', fontsize=16)
+        ax[1].set(xlabel='Predicted', ylabel='Residuals')
+
+    def homoscedasticity_test(self, model):
+        '''
+        Function for testing the homoscedasticity of residuals in a linear regression model.
+        It plots residuals and standardized residuals vs. fitted values and runs Breusch-Pagan and Goldfeld-Quandt tests.
+
+        Args:
+        * model - fitted OLS model from statsmodels
+        '''
+        fitted_vals = model.predict()
+        resids = model.resid
+        resids_standardized = model.get_influence().resid_studentized_internal
+
+        fig, ax = plt.subplots(1, 2)
+
+        sns.regplot(x=fitted_vals, y=resids, lowess=True, ax=ax[0], line_kws={'color': 'red'})
+        ax[0].set_title('Residuals vs Fitted', fontsize=16)
+        ax[0].set(xlabel='Fitted Values', ylabel='Residuals')
+
+        sns.regplot(x=fitted_vals, y=np.sqrt(np.abs(resids_standardized)), lowess=True, ax=ax[1],
+                    line_kws={'color': 'red'})
+        ax[1].set_title('Scale-Location', fontsize=16)
+        ax[1].set(xlabel='Fitted Values', ylabel='sqrt(abs(Residuals))')
+
+        bp_test = pd.DataFrame(sms.het_breuschpagan(resids, model.model.exog),
+                               columns=['value'],
+                               index=['Lagrange multiplier statistic', 'p-value', 'f-value', 'f p-value'])
+
+        gq_test = pd.DataFrame(sms.het_goldfeldquandt(resids, model.model.exog)[:-1],
+                               columns=['value'],
+                               index=['F statistic', 'p-value'])
+
+        print('\n Breusch-Pagan test ----')
+        print(bp_test)
+        print('\n Goldfeld-Quandt test ----')
+        print(gq_test)
+        print('\n Residuals plots ----')
+
+    def normality_of_residuals_test(self, model):
+        '''
+        Function for drawing the normal QQ-plot of the residuals and running 4 statistical tests to
+        investigate the normality of residuals.
+
+        Arg:
+        * model - fitted OLS models from statsmodels
+        '''
+        sm.ProbPlot(model.resid).qqplot(line='s')
+        plt.title('Q-Q plot')
+
+        jb = stats.jarque_bera(model.resid)
+        sw = stats.shapiro(model.resid)
+        ad = stats.anderson(model.resid, dist='norm')
+        ks = stats.kstest(model.resid, 'norm')
+
+        print(f'Jarque-Bera test ---- statistic: {jb[0]:.4f}, p-value: {jb[1]}')
+        print(f'Shapiro-Wilk test ---- statistic: {sw[0]:.4f}, p-value: {sw[1]:.4f}')
+        print(f'Kolmogorov-Smirnov test ---- statistic: {ks.statistic:.4f}, p-value: {ks.pvalue:.4f}')
+        print(
+            f'Anderson-Darling test ---- statistic: {ad.statistic:.4f}, 5% critical value: {ad.critical_values[2]:.4f}')
+        print(
+            'If the returned AD statistic is larger than the critical value, then for the 5% significance level, the null hypothesis that the data come from the Normal distribution should be rejected. ')
