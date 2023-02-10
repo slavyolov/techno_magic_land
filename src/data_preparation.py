@@ -15,13 +15,13 @@ class DataPreparation:
 
     def run(self):
         """
-        Execute the data processing stages
+        Execute the data processing stages.
 
         :return:
         """
         tables = self.read_data()
 
-        visitors_ts = self.prepare_tml_visitors_count(tables=tables, fill_gaps=False) #TODO: ddecide if true or false
+        visitors_ts = self.prepare_tml_visitors_count(tables=tables, fill_gaps=False)
         summer_holidays, winter_holidays, spring_holidays, school_exams, school_holidays = self.prepare_school_holidays()
         weather_df = self.prepare_weather_data()
 
@@ -74,18 +74,19 @@ class DataPreparation:
         profile = ProfileReport(tables["tml_visitors_p3"], title="Profiling Report")
         profile.to_file(output_file=f'src/output/profiling/tml_visitors_p3.html')
 
-        # profile = ProfileReport(tables["we_2018"], title="Profiling Report")
-        # profile.to_file(output_file=f'src/output/profiling/we_2018.html')
-        #
-        # profile = ProfileReport(tables["we_2019"], title="Profiling Report")
-        # profile.to_file(output_file=f'src/output/profiling/we_2019.html')
-        #
-        # profile = ProfileReport(tables["we_2020"], title="Profiling Report")
-        # profile.to_file(output_file=f'src/output/profiling/we_2020.html')
-
         print("Profiling done!")
 
-    def prepare_tml_visitors_count(self, tables, fill_gaps=False):
+    def prepare_tml_visitors_count(self, tables, fill_gaps=False, remove_by_inactivity=False):
+        """
+        Explore, clear and apply feature engineering to the time series data
+
+        :param tables:
+        :param fill_gaps:
+        :param remove_by_inactivity: After discussion within the team it was decided to not exclude these events because
+            there might be organized video events and the group of people may not check in at any experiment but watch
+            the video lecture
+        :return:
+        """
         # Handle missing data for the 1st file
         tml_visitors_p1 = tables["tml_visitors_p1"].copy(deep=True)
         print("TML start rows : ", len(tml_visitors_p1))
@@ -116,25 +117,26 @@ class DataPreparation:
 
         # create logic that filters the group of people that stay < 30 minutes (Дата на влизане - Дата на излизане) and
         # have no scored points (Assumed to be data issue). Logically kids in groups don't quit and must score points
-        df_groups = tml_visitors_p1.groupby(["Дата на влизане", "Дата на излизане", "imputed"]
-                                            ).agg({'Точки за посещението': ['count', 'sum']}
-                                                  )
+        if remove_by_inactivity:
+            df_groups = tml_visitors_p1.groupby(["Дата на влизане", "Дата на излизане", "imputed"]
+                                                ).agg({'Точки за посещението': ['count', 'sum']}
+                                                      )
 
-        df_groups.columns = ["_".join(x) for x in df_groups.columns.ravel()]
-        df_groups = df_groups.reset_index()
-        df_groups_zero_points = df_groups[df_groups["Точки за посещението_sum"] == 0]
-        df_groups_zero_points["diff_to_previous"] = (df_groups_zero_points["Дата на излизане"] - df_groups_zero_points["Дата на влизане"]) / pd.Timedelta(minutes=1)
-        df_groups_zero_points_to_remove = df_groups_zero_points[df_groups_zero_points["diff_to_previous"] < 30]
-        df_groups_zero_points_to_remove = df_groups_zero_points_to_remove[["Дата на влизане", "Дата на излизане"]]
+            df_groups.columns = ["_".join(x) for x in df_groups.columns.ravel()]
+            df_groups = df_groups.reset_index()
+            df_groups_zero_points = df_groups[df_groups["Точки за посещението_sum"] == 0]
+            df_groups_zero_points["diff_to_previous"] = (df_groups_zero_points["Дата на излизане"] - df_groups_zero_points["Дата на влизане"]) / pd.Timedelta(minutes=1)
+            df_groups_zero_points_to_remove = df_groups_zero_points[df_groups_zero_points["diff_to_previous"] < 30]
+            df_groups_zero_points_to_remove = df_groups_zero_points_to_remove[["Дата на влизане", "Дата на излизане"]]
 
-        df_filtered = tml_visitors_p1.merge(df_groups_zero_points_to_remove, on=["Дата на влизане", "Дата на излизане"],
-                           how='left', indicator=True)
-        df_filtered = df_filtered[df_filtered['_merge'] == 'left_only']
+            tml_visitors_p1 = tml_visitors_p1.merge(df_groups_zero_points_to_remove, on=["Дата на влизане", "Дата на излизане"],
+                               how='left', indicator=True)
+            tml_visitors_p1 = tml_visitors_p1[tml_visitors_p1['_merge'] == 'left_only']
 
-        print("TML rows after data clearing: ", len(df_filtered))
+            print("TML rows after data clearing: ", len(tml_visitors_p1))
 
         # Aggregate on day level to get the intensity (Интензивност на посещения - брой посетители на дневна база)
-        tml_visitors_count = df_filtered.groupby(by=["Дата"]).size().to_frame().reset_index()
+        tml_visitors_count = tml_visitors_p1.groupby(by=["Дата"]).size().to_frame().reset_index()
         tml_visitors_count = tml_visitors_count.rename(columns={0: 'visitors_count'})
         tml_visitors_count = tml_visitors_count.sort_values(by="Дата")
 
@@ -159,8 +161,7 @@ class DataPreparation:
         # Thus these rows are considered outliers and are removed from the analysis
         tml_visitors_count = tml_visitors_count.iloc[3:]
 
-        # Remove low count rows - outliers maybe
-        # TODO: to be decided - for now mayeb do not include
+        # Remove low count rows - Note it was decided to not clear these events
         # tml_visitors_count = tml_visitors_count[tml_visitors_count["visitors_count"] > 3]
 
         # Add the day_of_week column
@@ -168,11 +169,18 @@ class DataPreparation:
         print("Check day_of_week row count : ")
         print(tml_visitors_count["day_of_week"].value_counts().sort_values())
 
-        # From this it looks that the Monday is non working day for the TML.
+        # From this it looks that the Monday is non-working day for the TML.
         # There is only 1 observation that will be removed
         tml_visitors_count = tml_visitors_count[tml_visitors_count["day_of_week"] != 1]
 
-        # TODO: map holidays to closed days ? Create matrix calendar <- join the data to have all options ?
+        # Check for gaps in the data
+        data_gaps = tml_visitors_count.copy(deep=True)
+        data_gaps["Слeдваща дата"] = data_gaps["Дата"].shift(-1)
+        data_gaps["Разлика"] = data_gaps["Слeдваща дата"] - data_gaps["Дата"]
+        data_gaps = data_gaps[data_gaps["Разлика"] > pd.to_timedelta('2 day')].sort_values(by="Разлика",
+                                                                                           ascending=False)
+        data_gaps.to_excel("src/output/data/tml_data_gaps.xlsx")
+
         if fill_gaps:
             # Check for Gaps in the timeseries data
             tml_visitors_count['gap_in_days'] = tml_visitors_count['Дата'].sort_values().diff()
@@ -274,13 +282,30 @@ class DataPreparation:
         # add public holidays
         tml_visitors_ts["is_public_holiday"] = np.where(tml_visitors_ts["Дата"].isin(self.config.public_holidays), 1, 0)
 
-        # Experimenting :
-        # TODO : wip (maybe median ? )
-        # import pandas as pd
-        # avg_m = tml_visitors_ts.groupby("month").mean("visitors_count")["visitors_count"].reset_index()
-        # avg_m = avg_m.rename(columns={"visitors_count": 'visitors_count_month_avg'})
-        # tml_visitors_ts = pd.merge(tml_visitors_ts, avg_m, left_on="month", right_on="month", how="inner")
+        # Boxplots :
+        self.boxplot_per_period(data=tml_visitors_ts, year=2018)
+        self.boxplot_per_period(data=tml_visitors_ts, year=2019)
+        self.boxplot_per_period(data=tml_visitors_ts, year=2020)
 
+        # Boxplot per day_of_week
+        year = 2019
+        fig, ax = plt.subplots()
+        fig.set_size_inches((12, 4))
+        sns.boxplot(x='day_of_week', y='visitors_count',
+                    data=tml_visitors_ts[tml_visitors_ts["Дата"].between(f'{year}-01-01',
+                                                                         f'{year}-12-31')].copy(deep=True), ax=ax)
+        fig.savefig(f'src/output/plots/eda/box_plot_per_day_of_week_for_{year}.png', bbox_inches="tight")
+        plt.close()
+
+        # Boxplot per season
+        year = 2019
+        fig, ax = plt.subplots()
+        fig.set_size_inches((12, 4))
+        sns.boxplot(x='season', y='visitors_count',
+                    data=tml_visitors_ts[tml_visitors_ts["Дата"].between(f'{year}-01-01',
+                                                                         f'{year}-12-31')].copy(deep=True), ax=ax)
+        fig.savefig(f'src/output/plots/eda/box_plot_per_season_for_{year}.png', bbox_inches="tight")
+        plt.close()
 
         return tml_visitors_ts
 
@@ -318,7 +343,6 @@ class DataPreparation:
         # combine all holidays
         school_holidays = pd.DataFrame(
             summer_holidays["Дата"]
-            .append(school_exams["Дата"])
             .append(spring_holidays["Дата"])
             .append(winter_holidays["Дата"])
             .reset_index(drop=True)
@@ -419,3 +443,13 @@ class DataPreparation:
         return weather_df[["Дата", "temperature_celsius_max", "wind_speed_kph_max", "pressure_in_max",
                            'hot', 'warm', 'cool', 'cold'
                            ]]
+
+    @staticmethod
+    def boxplot_per_period(data, year):
+        data = data[data["Дата"].between(f'{year}-01-01', f'{year}-12-31')].copy(deep=True)
+
+        fig, ax = plt.subplots()
+        fig.set_size_inches((12, 4))
+        sns.boxplot(x='month', y='visitors_count', data=data, ax=ax)
+        fig.savefig(f'src/output/plots/eda/box_plot_per_month_for_{year}.png', bbox_inches="tight")
+        plt.close()

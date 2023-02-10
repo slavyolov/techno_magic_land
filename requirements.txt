@@ -7,3 +7,4 @@ openpyxl==3.0.10
 scikit-learn==1.2.1
 feature-engine==1.5.2
 statsmodels==0.13.2
+pyod==1.0.7

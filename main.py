@@ -10,8 +10,6 @@ if __name__ == '__main__':
     data_preparation = DataPreparation(config=config)
     tables, visitors_ts, school_holidays, combined_df = data_preparation.run()
 
-    combined_df.to_excel("src/output/data/tml_datamart.xlsx")
-
     # data profiling (run once)
     # data_preparation.data_profiling(tables)
 
@@ -21,3 +19,6 @@ if __name__ == '__main__':
 
     # Predictions
     lr.predict()
+
+    # Other experiments :
+    # https://colab.research.google.com/drive/1rAu9GthiODGt1sWbXPwJj9T3bJ7NuUGI#scrollTo=xn2veWYXSoOh&uniqifier=1
